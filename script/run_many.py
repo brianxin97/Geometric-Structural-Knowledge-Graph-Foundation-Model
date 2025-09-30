@@ -24,7 +24,7 @@ from script.run import train_and_validate, test
 
 default_finetuning_config = {
     # graph: (num_epochs, batches_per_epoch), null means all triples in train set
-    # transductive datasets (17)
+    # transductive datasets (16)
     # standard ones (10)
     "CoDExSmall": (1, 4000),
     "CoDExMedium": (1, 4000),
@@ -38,7 +38,6 @@ default_finetuning_config = {
     "ATOMIC": (1, 200),
     # tail-only datasets (2)
     "NELL995": (1, 'null'),  # not implemented yet
-    "Hetionet": (1, 4000),
     # sparse datasets (5)
     "WDsinger": (3, 'null'),
     "FB15k237_10": (1, 'null'),
@@ -70,7 +69,7 @@ default_finetuning_config = {
 
 default_train_config = {
     # graph: (num_epochs, batches_per_epoch), null means all triples in train set
-    # transductive datasets (17)
+    # transductive datasets (16)
     # standard ones (10)
     "CoDExSmall": (10, 1000),
     "CoDExMedium": (10, 1000),
@@ -84,7 +83,6 @@ default_train_config = {
     "ATOMIC": (10, 1000),
     # tail-only datasets (2)
     "NELL995": (10, 1000),  # not implemented yet
-    "Hetionet": (10, 1000),
     # sparse datasets (5)
     "WDsinger": (10, 1000),
     "FB15k237_10": (10, 1000),
