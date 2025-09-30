@@ -1,7 +1,18 @@
+# GAMMA: Geometric-Knowledge-Graph-Foundation-Model
+
+> ⚡️ This project is built on top of **ULTRA: Towards Foundation Models for Knowledge Graph Reasoning** (MIT License).  
+> This README is adapted from the original project’s README with targeted changes to reflect this fork’s behavior.  
+> The bulk of the original documentation is preserved below.
+
+GAMMA, a knowledge graph foundation model that overcomes the limitations of existing approaches by integrating multiple geometric transformations within a unified attention-based framework. Different with prior models that rely on a single transformation and thus introduce structural biases, GAMMA leverages multiple relational message passing mechanisms to dynamically adapt to the relational patterns present in the data.
+
+---
+
+
 ## Installation ##
 
 You may install the dependencies via either conda or pip. 
-ultra-attention PyG is implemented with Python 3.9, PyTorch 2.1 and PyG 2.4 (CUDA 11.8 or later when running on GPUs). If you are on a Mac, you may omit the CUDA toolkit requirements.
+GAMMA is implemented with Python 3.9, PyTorch 2.1 and PyG 2.4 (CUDA 11.8 or later when running on GPUs). If you are on a Mac, you may omit the CUDA toolkit requirements.
 
 ### From Conda ###
 
@@ -35,8 +46,8 @@ export CUDA_HOME=/usr/local/cuda-11.8/
 
 ## Checkpoints ##
 
-We provide pre-trained ultra-attention checkpoints in the `/ckpts` folder trained on 4 x A100 GPUs with this codebase:
-* `ultra_attention.pth`: trained on `FB15k237, WN18RR, CoDExMedium` for 800,000 steps, config is in `/config/transductive/pretrain_3g.yaml`
+We provide pre-trained GAMMA checkpoints in the `/ckpts` folder trained on 4 x A100 GPUs with this codebase:
+* `gamma.pth` and all remaining checkpoints are trained on `FB15k237, WN18RR, CoDExMedium` for 800,000 steps, config is in `/config/transductive/pretrain_3g.yaml`
 
 You can use those checkpoints for zero-shot inference on any graph (including your own) or use it as a backbone for fine-tuning.
 
@@ -45,7 +56,7 @@ You can use those checkpoints for zero-shot inference on any graph (including yo
 The `/scripts` folder contains 3 executable files:
 * `run.py` - run an experiment on a single dataset
 * `run_many.py` - run experiments on several datasets sequentially and dump results into a CSV file
-* `pretrain.py` - a script for pre-training ultra-attention on several graphs
+* `pretrain.py` - a script for pre-training GAMMA on several graphs
 
 The yaml configs in the `config` folder are provided for both `transductive` and `inductive` datasets.
 
@@ -58,7 +69,7 @@ The `run.py` command requires the following arguments:
 * `--epochs`: number of epochs to train, `--epochs 0` means running zero-shot inference.
 * `--bpe`: batches per epoch (replaces the length of the dataloader as default value). `--bpe 100 --epochs 10` means that each epoch consists of 100 batches, and overall training is 1000 batches. Set `--bpe null` to use the full length dataloader or comment the `bpe` line in the yaml configs.
 * `--gpus`: number of gpu devices, set to `--gpus null` when running on CPUs, `--gpus [0]` for a single GPU, or otherwise set the number of GPUs for a [distributed setup](#distributed-setup)
-* `--ckpt`: **full** path to the one of the ultra-attention checkpoints to use (you can use those provided in the repo ot trained on your own). Use `--ckpt null` to start training from scratch (or run zero-shot inference on a randomly initialized model, it still might surprise you and demonstrate non-zero performance).
+* `--ckpt`: **full** path to the one of the GAMMA checkpoints to use (you can use those provided in the repo ot trained on your own). Use `--ckpt null` to start training from scratch (or run zero-shot inference on a randomly initialized model, it still might surprise you and demonstrate non-zero performance).
 
 Zero-shot inference setup is `--epochs 0` with a given checkpoint `ckpt`.
 
@@ -68,38 +79,38 @@ Fine-tuning of a checkpoint is when epochs > 0 with a given checkpoint.
 An example command for an inductive dataset to run on a CPU: 
 
 ```bash
-python script/run.py -c config/inductive/inference.yaml --dataset FB15k237Inductive --version v1 --epochs 0 --bpe null --gpus null --ckpt /path/to/ultra-attention/ckpts/ultra_attention.pth
+python script/run.py -c config/inductive/inference.yaml --dataset FB15k237Inductive --version v1 --epochs 0 --bpe null --gpus null --ckpt /path/to/gamma/ckpts/gamma.pth
 ```
 
 An example command for a transductive dataset to run on a GPU:
 ```bash
-python script/run.py -c config/transductive/inference.yaml --dataset CoDExSmall --epochs 0 --bpe null --gpus [0] --ckpt /path/to/ultra-attention/ckpts/ultra_attention.pth
+python script/run.py -c config/transductive/inference.yaml --dataset CoDExSmall --epochs 0 --bpe null --gpus [0] --ckpt /path/to/gamma/ckpts/gamma.pth
 ```
 
 ### Run on many datasets
 
-The `run_many.py` script is a convenient way to run evaluation (0-shot inference and fine-tuning) on several datasets sequentially. Upon completion, the script will generate a csv file `ultra_results_<timestamp>` with the test set results and chosen metrics. 
+The `run_many.py` script is a convenient way to run evaluation (0-shot inference and fine-tuning) on several datasets sequentially. Upon completion, the script will generate a csv file `gamma_results_<timestamp>` with the test set results and chosen metrics. 
 Using the same config files, you only need to specify:
 
 * `-c <yaml config>`: use the full path to the yaml config because workdir will be reset after each dataset; 
 * `-d, --datasets`: a comma-separated list of [datasets](#datasets) to run, inductive datasets use the `name:version` convention. For example, `-d ILPC2022:small,ILPC2022:large`;
-* `--ckpt`: ultra-attention checkpoint to run the experiments on, use the **full** path to the file;
+* `--ckpt`: GAMMA checkpoint to run the experiments on, use the **full** path to the file;
 * `--gpus`: the same as in [run single](#run-a-single-experiment);
 * `-reps` (optional): number of repeats with different seeds, set by default to 1 for zero-shot inference;
-* `-ft, --finetune` (optional): use the finetuning configs of ultra-attention (`default_finetuning_config`) to fine-tune a given checkpoint for specified `epochs` and `bpe`;
+* `-ft, --finetune` (optional): use the finetuning configs of GAMMA (`default_finetuning_config`) to fine-tune a given checkpoint for specified `epochs` and `bpe`;
 * `-tr, --train` (optional): train ultra-attention from scratch on the target dataset taking `epochs` and `bpe` parameters from another pre-defined config (`default_train_config`);
 * `--epochs` and `--bpe` will be set according to a configuration, by default they are set for a 0-shot inference.
 
-An example command to run 0-shot inference evaluation of an ultra-attention checkpoint on 4 FB GraIL datasets:
+An example command to run 0-shot inference evaluation of an GAMMA checkpoint on 4 FB GraIL datasets:
 
 ```bash
-python script/run_many.py -c /path/to/config/inductive/inference.yaml --gpus [0] --ckpt /path/to/ultra-attention/ckpts/ultra_attention.pth -d FB15k237Inductive:v1,FB15k237Inductive:v2,FB15k237Inductive:v3,FB15k237Inductive:v4
+python script/run_many.py -c /path/to/config/inductive/inference.yaml --gpus [0] --ckpt /path/to/gamma/ckpts/gamma.pth -d FB15k237Inductive:v1,FB15k237Inductive:v2,FB15k237Inductive:v3,FB15k237Inductive:v4
 ```
 
 An example command to run fine-tuning on 4 FB GraIL datasets with 5 different seeds:
 
 ```bash
-python script/run_many.py -c /path/to/config/inductive/inference.yaml --gpus [0] --ckpt /path/to/ultra-attention/ckpts/ultra_attention.pth --finetune --reps 5 -d FB15k237Inductive:v1,FB15k237Inductive:v2,FB15k237Inductive:v3,FB15k237Inductive:v4
+python script/run_many.py -c /path/to/config/inductive/inference.yaml --gpus [0] --ckpt /path/to/gamma/ckpts/gamma.pth --finetune --reps 5 -d FB15k237Inductive:v1,FB15k237Inductive:v2,FB15k237Inductive:v3,FB15k237Inductive:v4
 ```
 
 ### Pretraining
@@ -239,4 +250,4 @@ class CustomDataset(InductiveDataset):
 </details>
 
 TSV / CSV files are supported by setting a delimiter (eg,  `delimiter = "\t"`) in the class definition. 
-After adding your own dataset, you can immediately run 0-shot inference or fine-tuning of any ultra-attention checkpoint.
+After adding your own dataset, you can immediately run 0-shot inference or fine-tuning of any GAMMA checkpoint.
