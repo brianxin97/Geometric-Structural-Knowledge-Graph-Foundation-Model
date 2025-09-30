@@ -2,7 +2,7 @@
 
 > ⚡️ This project is built on top of **ULTRA: Towards Foundation Models for Knowledge Graph Reasoning** (MIT License).  
 > This README is adapted from the original project’s README with targeted changes to reflect this fork’s behavior.  
-> The bulk of the original documentation is preserved below.
+> The bulk of the adapted documentation is preserved below.
 
 GAMMA, a knowledge graph foundation model that overcomes the limitations of existing approaches by integrating multiple geometric transformations within a unified attention-based framework. Different with prior models that rely on a single transformation and thus introduce structural biases, GAMMA leverages multiple relational message passing mechanisms to dynamically adapt to the relational patterns present in the data.
 
