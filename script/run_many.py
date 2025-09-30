@@ -17,8 +17,8 @@ from torch.utils import data as torch_data
 from torch_geometric.data import Data
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from ultra import tasks, util
-from ultra.models import Ultra
+from gamma import tasks, util
+from gamma.models import Gamma
 from script.run import train_and_validate, test
 
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
    
     datasets = args.datasets.split(",")
     path = os.path.dirname(os.path.expanduser(__file__))
-    results_file = os.path.join(path, f"ultra_results_{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv")
+    results_file = os.path.join(path, f"gamma_results_{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv")
 
     for graph in datasets:
         ds, version = graph.split(":") if ":" in graph else (graph, None)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
             valid_data = valid_data.to(device)
             test_data = test_data.to(device)
 
-            model = Ultra(
+            model = Gamma(
                 rel_model_cfg=cfg.model.relation_model,
                 entity_model_cfg=cfg.model.entity_model,
             )

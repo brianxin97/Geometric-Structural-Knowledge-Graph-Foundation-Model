@@ -1,12 +1,12 @@
-output_dir: ~/git/ULTRA-Att/output
+output_dir: ~/git/GAMMA/output
 
 dataset:
   class: JointDataset
   graphs: [FB15k237, WN18RR, CoDExMedium]
-  root: ~/git/ULTRA-Att/datasets
+  root: ~/git/GAMMA/datasets
 
 model:
-  class: Ultra
+  class: Gamma
   relation_model:
     class: RelNBFNet
     input_dim: 64

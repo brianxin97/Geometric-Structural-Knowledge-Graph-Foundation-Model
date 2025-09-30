@@ -15,8 +15,8 @@ from torch.utils import data as torch_data
 from torch_geometric.data import Data
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from ultra import tasks, util
-from ultra.models import Ultra
+from gamma import tasks, util
+from gamma.models import Gamma
 
 separator = ">" * 30
 line = "-" * 30
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     valid_data = [vd.to(device) for vd in valid_data]
     test_data = [tst.to(device) for tst in test_data]
 
-    model = Ultra(
+    model = Gamma(
         rel_model_cfg=cfg.model.relation_model,
         entity_model_cfg=cfg.model.entity_model,
     )
