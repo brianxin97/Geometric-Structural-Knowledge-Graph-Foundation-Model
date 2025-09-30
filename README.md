@@ -35,10 +35,10 @@ export CUDA_HOME=/usr/local/cuda-11.8/
 
 ## Checkpoints ##
 
-We provide two pre-trained ultra-attention checkpoints in the `/ckpts` folder trained on 4 x A100 GPUs with this codebase:
+We provide pre-trained ultra-attention checkpoints in the `/ckpts` folder trained on 4 x A100 GPUs with this codebase:
 * `ultra_attention.pth`: trained on `FB15k237, WN18RR, CoDExMedium` for 800,000 steps, config is in `/config/transductive/pretrain_3g.yaml`
 
-You can use those checkpoints for zero-shot inference on any graph (including your own) or use it as a backbone for fine-tuning. Both checkpoints are rather small (2 MB each).
+You can use those checkpoints for zero-shot inference on any graph (including your own) or use it as a backbone for fine-tuning.
 
 ## Run Inference and Fine-tuning
 
