@@ -501,16 +501,6 @@ class YAGO310(TransductiveDataset):
     name = "yago310"
 
 
-class Hetionet(TransductiveDataset):
-
-    urls = [
-        "https://www.dropbox.com/s/y47bt9oq57h6l5k/train.txt?dl=1",
-        "https://www.dropbox.com/s/a0pbrx9tz3dgsff/valid.txt?dl=1",
-        "https://www.dropbox.com/s/4dhrvg3fyq5tnu4/test.txt?dl=1",
-        ]
-    name = "hetionet"
-
-
 class AristoV4(TransductiveDataset):
 
     url = "https://zenodo.org/record/5942560/files/aristo-v4.zip"
