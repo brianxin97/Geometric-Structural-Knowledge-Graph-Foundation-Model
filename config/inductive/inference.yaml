@@ -1,9 +1,9 @@
-output_dir: ~/git/Geometric-Knowledge-Graph-Foundation-Model
+output_dir: ~/Geometric-Knowledge-Graph-Foundation-Model
 /output
 
 dataset:
   class: {{ dataset }}
-  root: ~/git/Geometric-Knowledge-Graph-Foundation-Model
+  root: ~/Geometric-Knowledge-Graph-Foundation-Model
 /datasets
   version: {{ version }}
 
