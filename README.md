@@ -92,7 +92,7 @@ python script/run.py -c config/transductive/inference.yaml --dataset CoDExSmall 
 The `run_many.py` script is a convenient way to run evaluation (0-shot inference and fine-tuning) on several datasets sequentially. Upon completion, the script will generate a csv file `gamma_results_<timestamp>` with the test set results and chosen metrics. 
 Using the same config files, you only need to specify:
 
-* `-c <yaml config>`: use the full path to the yaml config because workdir will be reset after each dataset; 
+* `-c <yaml config>`: use the **full** path to the yaml config because workdir will be reset after each dataset; 
 * `-d, --datasets`: a comma-separated list of [datasets](#datasets) to run, inductive datasets use the `name:version` convention. For example, `-d ILPC2022:small,ILPC2022:large`;
 * `--ckpt`: GAMMA checkpoint to run the experiments on, use the **full** path to the file;
 * `--gpus`: the same as in [run single](#run-a-single-experiment);
