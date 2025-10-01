@@ -21,7 +21,7 @@ model:
     class: EntityNBFNet
     input_dim: 64
     hidden_dims: [64, 64, 64, 64, 64, 64]
-    model_list: [ 'complex', 'split' ]
+    model_list: [ 'rotate', 'split' ]
     aggregate_func: sum
     short_cut: yes
     layer_norm: yes
