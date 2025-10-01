@@ -15,7 +15,7 @@ class GeneralizedRelationalConv(MessagePassing):
     message2mul = {
         "transe": "add",
         "distmult": "mul",
-        "complex": "complex",
+        "rotate": "rotate",
         "split": "split",
         "dual": "dual",
         "mobius": "mobius",
@@ -118,7 +118,7 @@ class GeneralizedRelationalConv(MessagePassing):
 
     def propagate(self, edge_index, size=None, **kwargs):
         if kwargs[
-            "edge_weight"].requires_grad or self.message_func == "complex" or self.message_func == "transrotate" or self.message_func == "mobius" or self.message_func == "split" or self.message_func == "splitmobius" or self.message_func == "dual":
+            "edge_weight"].requires_grad or self.message_func == "rotate" or self.message_func == "transrotate" or self.message_func == "mobius" or self.message_func == "split" or self.message_func == "splitmobius" or self.message_func == "dual":
             # the rspmm cuda kernel only works for TransE and DistMult message functions
             # otherwise we invoke separate message & aggregate functions
             return super(GeneralizedRelationalConv, self).propagate(edge_index, size, **kwargs)
@@ -169,7 +169,7 @@ class GeneralizedRelationalConv(MessagePassing):
             message = input_j + relation_j
         elif self.message_func == "distmult":
             message = input_j * relation_j
-        elif self.message_func == "complex":
+        elif self.message_func == "rotate":
             x_j_re, x_j_im = input_j.chunk(2, dim=-1)
             r_j_re, r_j_im = relation_j.chunk(2, dim=-1)
             message_re = x_j_re * r_j_re - x_j_im * r_j_im
