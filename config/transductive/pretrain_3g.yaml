@@ -1,11 +1,9 @@
-output_dir: ~/Geometric-Knowledge-Graph-Foundation-Model
-/output
+output_dir: ~/GAMMA/output
 
 dataset:
   class: JointDataset
   graphs: [FB15k237, WN18RR, CoDExMedium]
-  root: ~/Geometric-Knowledge-Graph-Foundation-Model
-/datasets
+  root: ~/GAMMA/datasets
 
 model:
   class: Gamma
