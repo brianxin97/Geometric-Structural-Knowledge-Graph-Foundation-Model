@@ -181,7 +181,7 @@ class EntityNBFNet(BaseNBFNet):
             output = torch.cat(hiddens + [node_query], dim=-1)
         else:
             output = torch.cat([hiddens[-1], node_query], dim=-1)
-            return output  # (bs, num_nodes, branch_feature_dim)
+        return output  # (bs, num_nodes, branch_feature_dim)
 
     def forward(self, data, relation_representations, batch):
         h_index, t_index, r_index = batch.unbind(-1)
