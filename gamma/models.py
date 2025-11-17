@@ -103,15 +103,33 @@ class RelNBFNet(BaseNBFNet):
 
 
 class EntityNBFNet(BaseNBFNet):
+    """
+    The entity-level reasoner with multi-branch architecture and attention mechanism
+    Extends BaseNBFNet to perform message passing on entity graphs using multiple message functions
+    Key features:
+    (1) Multiple parallel branches, each with a different message function (e.g., rotate, split, dual)
+    (2) Attention mechanism to dynamically weight the outputs from different branches based on the query
+    (3) Final MLP projection from concatenated branch features to scores
+    (4) Returns scoring distribution over entities for tail prediction
+    """
 
-    def __init__(self, input_dim, hidden_dims, model_list, num_relation=1, **kwargs):
+    def __init__(self, input_dim, hidden_dims, model_list, num_relation=1,
+                 attn_temp: float = 2.0,
+                 attn_dropout: float = 0.1,
+                 attn_uniform_mix: float = 0.05,
+                 entropy_reg_weight: float = 0.003,
+                 **kwargs):
 
         # dummy num_relation = 1 as we won't use it in the NBFNet layer
         super().__init__(input_dim, hidden_dims, num_relation, **kwargs)
 
+        # list of message functions to create parallel branches
         self.model_list = model_list
+        # weight for entropy regularization to encourage diverse branch usage
+        self.entropy_reg_weight = float(entropy_reg_weight)
+        self.debug_info = {}
 
-        # Build a separate stack of layers for each message function branch
+        # build a separate stack of layers for each message function branch
         self.branches = nn.ModuleDict()
         for msg in self.model_list:
             stack = nn.ModuleList()
@@ -121,7 +139,7 @@ class EntityNBFNet(BaseNBFNet):
                         self.dims[i], self.dims[i + 1],
                         num_relation=1,
                         query_input_dim=self.dims[0],
-                        message_func=msg,
+                        message_func=msg,  # Different message function for each branch
                         aggregate_func=self.aggregate_func,
                         layer_norm=self.layer_norm,
                         activation=self.activation,
@@ -131,20 +149,26 @@ class EntityNBFNet(BaseNBFNet):
                 )
             self.branches[msg] = stack
 
-        # Output dimension of each single branch
+        # output dimension of each single branch
         self.branch_feature_dim = (sum(hidden_dims) if self.concat_hidden else hidden_dims[-1]) + input_dim
 
-        # Attention mechanism: map the query to a context vector; map outputs of each branch into the same attention space
+        # attention mechanism: map the query to a context vector; map outputs of each branch into the same attention space
         self.att_dim = self.branch_feature_dim
+        # project query relation embeddings to attention space
         self.query_to_ctx = nn.Linear(input_dim, self.att_dim, bias=False)
+        # project each branch's output to attention space for key-query matching
         self.branch_key_proj = nn.ModuleDict({
             msg: nn.Linear(self.branch_feature_dim, self.att_dim, bias=False)
             for msg in self.model_list
         })
-        self.scale = 1.0 / math.sqrt(self.att_dim)
-        self.softmax = nn.Softmax(dim=2)
 
-        # The input is the concatenated features from all branches
+        # temperature parameter for softmax sharpness in attention
+        self.attn_temp = nn.Parameter(torch.tensor(attn_temp), requires_grad=False)
+        self.att_dropout = nn.Dropout(attn_dropout)
+        # mix attention weights with uniform distribution to prevent over-specialization
+        self.att_uniform_mix = float(attn_uniform_mix)
+
+        # the input is the concatenated features from all branches
         fused_dim = len(self.model_list) * self.branch_feature_dim
         mlp = []
         for _ in range(self.num_mlp_layers - 1):
@@ -166,8 +190,9 @@ class EntityNBFNet(BaseNBFNet):
         size = (data.num_nodes, data.num_nodes)
         edge_weight = torch.ones(data.num_edges, device=h_index.device)
 
-        # Bellman-Ford iteration, we send the original boundary condition in addition to the updated node states
+        # Bellman-Ford iteration: message passing through multiple layers
         for layer in stack:
+            # each layer updates node features based on neighbor messages
             hidden = layer(layer_input, query, boundary, data.edge_index, data.edge_type, size, edge_weight)
             if self.short_cut and hidden.shape == layer_input.shape:
                 # residual connection here
@@ -175,19 +200,60 @@ class EntityNBFNet(BaseNBFNet):
             hiddens.append(hidden)
             layer_input = hidden
 
-        # original query (relation type) embeddings
+        # expand query embeddings to all nodes for concatenation
         node_query = query.unsqueeze(1).expand(-1, data.num_nodes, -1)  # (batch_size, num_nodes, input_dim)
         if self.concat_hidden:
+            # concatenate all layer outputs with query embeddings
             output = torch.cat(hiddens + [node_query], dim=-1)
         else:
+            # only use final layer output with query embeddings
             output = torch.cat([hiddens[-1], node_query], dim=-1)
-        return output  # (bs, num_nodes, branch_feature_dim)
+        return output
+
+    def _compute_attention(self, q, branch_features):
+        bs = q.size(0)
+        K = len(self.model_list)
+
+        # project query to attention context space and normalize
+        ctx = self.query_to_ctx(q)
+        ctx = F.normalize(ctx, dim=-1).unsqueeze(1).unsqueeze(2)  # (batch_size, 1, 1, att_dim)
+
+        # project each branch's features to keys and stack
+        keys = torch.stack(
+            [self.branch_key_proj[msg](feat) for msg, feat in zip(self.model_list, branch_features)], dim=2
+        )  # (batch_size, num_nodes, K, att_dim)
+        keys = F.normalize(keys, dim=-1)
+
+        # compute attention logits via dot product between context and keys
+        att_logits = (keys * ctx).sum(-1)  # (batch_size, num_nodes, K)
+        # apply temperature-scaled softmax to get attention weights
+        att = F.softmax(att_logits / self.attn_temp.clamp(min=1e-6), dim=-1)
+
+        # mix with uniform distribution to prevent over-specialization
+        if self.att_uniform_mix > 0:
+            uniform = torch.full_like(att, 1.0 / K)
+            att = (1.0 - self.att_uniform_mix) * att + self.att_uniform_mix * uniform
+
+        # compute attention entropy for regularization (encourage diversity)
+        p = att.clamp(min=1e-8)
+        att_entropy = (-p * p.log()).sum(dim=-1).mean()
+        # track average attention per branch for monitoring
+        att_mean_per_branch = att.mean(dim=(0, 1))
+
+        # apply dropout to attention weights
+        att = self.att_dropout(att)
+
+        # stack branch features for weighted combination
+        cand = torch.stack(branch_features, dim=2)  # (batch_size, num_nodes, K, branch_feature_dim)
+
+        return att, cand, att_entropy, att_mean_per_branch
 
     def forward(self, data, relation_representations, batch):
+        # unpack batch triples: (head, tail, relation)
         h_index, t_index, r_index = batch.unbind(-1)
 
         if self.training:
-            # Edge dropout in the training mode
+            # edge dropout in the training mode
             # here we want to remove immediate edges (head, relation, tail) from the edge_index and edge_types
             # to make NBFNet iteration learn non-trivial paths
             data = self.remove_easy_edges(data, h_index, t_index, r_index)
@@ -196,43 +262,51 @@ class EntityNBFNet(BaseNBFNet):
         # turn all triples in a batch into a tail prediction mode
         h_index, t_index, r_index = self.negative_sample_to_tail(h_index, t_index, r_index,
                                                                  num_direct_rel=data.num_relations // 2)
+        # verify that all samples in batch share the same head and relation
         assert (h_index[:, [0]] == h_index).all()
         assert (r_index[:, [0]] == r_index).all()
 
-        # Obtain the query representation for each sample from the relational graph embeddings (instead of local embeddings)
         bs = h_index.size(0)
-        q = relation_representations[torch.arange(bs, device=h_index.device), r_index[:, 0]]  # (bs, input_dim)
+        # extract query relation embeddings for the batch
+        q = relation_representations[torch.arange(bs, device=h_index.device), r_index[:, 0]]
 
-        # initialize relations in each NBFNet layer (with uinque projection internally)
+        # initialize relation embeddings in each branch's layers
         for stack in self.branches.values():
             for layer in stack:
                 layer.relation = relation_representations
 
-        # message passing and updated node representations
+        # run message passing through each branch independently
         branch_features = []
         for msg in self.model_list:
-            feature = self.bellmanford(self.branches[msg], data, h_index[:, 0], q)
-            branch_features.append(feature)
+            feat = self.bellmanford(self.branches[msg], data, h_index[:, 0], q)
+            branch_features.append(feat)
 
-        cand = torch.stack(branch_features, dim=2)  # (bs, num_nodes, K, branch_feature_dim)
+        # compute attention weights and fuse branch outputs
+        att, cand, att_entropy, att_mean_per_branch = self._compute_attention(q, branch_features)
 
-        # Attention weights are computed as: query → context; branch features → keys; followed by a softmax over the key dimension
-        ctx = self.query_to_ctx(q).unsqueeze(1).unsqueeze(2)  # (bs, 1, 1, att_dim)
-        keys = torch.stack(
-            [self.branch_key_proj[msg](feature) for msg, feature in zip(self.model_list, branch_features)], dim=2
-        )  # (bs, num_nodes, K, att_dim)
-        att_logits = (keys * ctx).sum(-1, keepdim=True) * self.scale  # (bs, num_nodes, K, 1)
-        att = self.softmax(att_logits)
-
-        # After attention weighting, concatenate the weighted branch features
-        fused_feature = (att * cand).view(bs, data.num_nodes, -1)  # (bs, num_nodes, K*branch_feature_dim)
+        # weighted combination: (batch_size, num_nodes, K, 1) * (batch_size, num_nodes, K, dim) -> (batch_size, num_nodes, K*dim)
+        fused_feature = (att.unsqueeze(-1) * cand).reshape(bs, data.num_nodes, -1)
 
         # extract representations of tail entities from the updated node states
         index = t_index.unsqueeze(-1).expand(-1, -1, fused_feature.shape[-1])
-        fused_feature = fused_feature.gather(1, index)  # (batch_size, num_negative + 1, K*branch_feature_dim)
+        fused_feature = fused_feature.gather(1, index)
 
-        # probability logit for each tail node in the batch
-        # (batch_size, num_negative + 1, dim) -> (batch_size, num_negative + 1)
+        # project fused features to scores via MLP
         score = self.mlp(fused_feature).squeeze(-1)
-        return score.view(shape)
+        score = score.view(shape)
+
+        if self.training:
+            # return auxiliary information for monitoring and regularization
+            aux = {
+                "att_entropy": att_entropy.detach(),
+                "att_mean_per_branch": att_mean_per_branch.detach(),
+            }
+            # add entropy regularization loss to encourage diverse branch usage
+            if self.entropy_reg_weight > 0:
+                aux["aux_loss"] = -self.entropy_reg_weight * att_entropy
+            else:
+                aux["aux_loss"] = None
+            return score, aux
+        
+        return score
 
