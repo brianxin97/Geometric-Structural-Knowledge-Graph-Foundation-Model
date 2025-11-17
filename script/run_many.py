@@ -24,7 +24,7 @@ from script.run import train_and_validate, test
 
 default_finetuning_config = {
     # graph: (num_epochs, batches_per_epoch), null means all triples in train set
-    # transductive datasets (16)
+    # transductive datasets (15)
     # standard ones (10)
     "CoDExSmall": (1, 4000),
     "CoDExMedium": (1, 4000),
@@ -36,7 +36,7 @@ default_finetuning_config = {
     "AristoV4": (1, 2000),
     "ConceptNet100k": (1, 2000),
     "ATOMIC": (1, 200),
-    # tail-only datasets (2)
+    # tail-only datasets (1)
     "NELL995": (1, 'null'),  # not implemented yet
     # sparse datasets (5)
     "WDsinger": (3, 'null'),
@@ -69,7 +69,7 @@ default_finetuning_config = {
 
 default_train_config = {
     # graph: (num_epochs, batches_per_epoch), null means all triples in train set
-    # transductive datasets (16)
+    # transductive datasets (15)
     # standard ones (10)
     "CoDExSmall": (10, 1000),
     "CoDExMedium": (10, 1000),
@@ -81,7 +81,7 @@ default_train_config = {
     "AristoV4": (10, 1000),
     "ConceptNet100k": (10, 1000),
     "ATOMIC": (10, 1000),
-    # tail-only datasets (2)
+    # tail-only datasets (1)
     "NELL995": (10, 1000),  # not implemented yet
     # sparse datasets (5)
     "WDsinger": (10, 1000),
@@ -138,8 +138,16 @@ if __name__ == "__main__":
     args, unparsed = parser.parse_known_args()
    
     datasets = args.datasets.split(",")
-    path = os.path.dirname(os.path.expanduser(__file__))
-    results_file = os.path.join(path, f"gamma_results_{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv")
+    vars = util.detect_variables(args.config)
+    parser = argparse.ArgumentParser()
+    for var in vars:
+        parser.add_argument("--%s" % var)
+    vars = parser.parse_known_args(unparsed)[0]
+    vars = {k: util.literal_eval(v) for k, v in vars._get_kwargs()}
+
+    temp_cfg = util.load_config(args.config, context=vars)
+    path = os.path.expanduser(os.path.expandvars(temp_cfg.output_dir))
+    results_file = os.path.join(path, f"ultra_results_{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv")
 
     for graph in datasets:
         ds, version = graph.split(":") if ":" in graph else (graph, None)
