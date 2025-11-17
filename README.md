@@ -46,7 +46,7 @@ export CUDA_HOME=/usr/local/cuda-11.8/
 
 ## Checkpoints ##
 
-We provide pre-trained GAMMA checkpoints in the `/ckpts` folder trained on 4 x A100 GPUs with this codebase:
+We provide pre-trained GAMMA checkpoints in the `/ckpts` folder trained on 4 x H200 GPUs with this codebase:
 * `gamma.pth` and all remaining checkpoints are trained on `FB15k237, WN18RR, CoDExMedium` for 800,000 steps, config is in `/config/transductive/pretrain_3g.yaml`
 
 You can use those checkpoints for zero-shot inference on any graph (including your own) or use it as a backbone for fine-tuning.
@@ -115,7 +115,7 @@ python script/run_many.py -c /path/to/config/inductive/inference.yaml --gpus [0]
 
 ### Pretraining
 
-Run the pre-training script `pretrain.py` with the `config/transductive/pretrain_<ngraphs>.yaml` config file. 
+Run the pre-training script `pretrain.py` with the `config/transductive/pretrain_3g.yaml` config file. 
 
 `graphs` in the config specify the pre-training mixture. `pretrain_3g.yaml` uses FB15k237, WN18RR, CoDExMedium. By default, we use the training option `fast_test: 500` to run faster evaluation on a random subset of 500 triples (that approximates full validation performance) of each validation set of the pre-training mixture.
 You can change the pre-training length by varying batches per epoch `batch_per_epoch` and `epochs` hyperparameters.
@@ -146,7 +146,7 @@ An example command to start pre-training on 3 graphs:
 python script/pretrain.py -c /path/to/config/transductive/pretrain_3g.yaml --gpus [0]
 ```
 
-Pre-training can be computationally heavy, you might need to decrease the batch size for smaller GPU RAM. The two provided checkpoints were trained on 4 x A100 (40 GB).
+Pre-training can be computationally heavy, you might need to decrease the batch size for smaller GPU RAM. The two provided checkpoints were trained on 4 x H200 (141 GB).
 
 #### Distributed setup
 To run ultra-attention with multiple GPUs, use the following commands (eg, 4 GPUs per node)
@@ -165,7 +165,7 @@ python -m torch.distributed.launch --nnodes=4 --nproc_per_node=4 script/pretrain
 The repo packs 56 different KG datasets of sizes from 1K-120K nodes and 1K-2M edges. Inductive datasets have splits of different `version` and a common notation is `dataset:version`, eg `ILPC2022:small`
 
 <details>
-<summary>Transductive datasets (16)</summary>
+<summary>Transductive datasets (15)</summary>
 
 * `FB15k237`, `WN18RR`, `NELL995`, `YAGO310`, `CoDExSmall`, `CoDExMedium`, `CoDExLarge`, `ConceptNet100k`, `DBpedia100k`, `AristoV4` - full head/tail evaluation
 * `WDsinger`, `NELL23k`, `FB15k237_10`, `FB15k237_20`, `FB15k237_50`- only tail evaluation
