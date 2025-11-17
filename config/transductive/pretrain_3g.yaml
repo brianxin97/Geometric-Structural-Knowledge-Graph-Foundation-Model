@@ -37,10 +37,10 @@ optimizer:
 
 train:
   gpus: {{ gpus }}
-  batch_size: 8  # 8 for 4x A100 (40 GB), adjust gradient_accumulation_steps accordingly
+  batch_size: 16  # 16 for 4x H100 (141 GB), adjust gradient_accumulation_steps accordingly
   num_epoch: 10
   log_interval: 800
   batch_per_epoch: 80000
   fast_test: 500
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 1
   #logger: wandb
