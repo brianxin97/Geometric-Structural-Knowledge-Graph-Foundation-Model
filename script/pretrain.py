@@ -15,8 +15,9 @@ from torch.utils import data as torch_data
 from torch_geometric.data import Data
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from gamma import tasks, util
-from gamma.models import Gamma
+from ultra import tasks, util
+from ultra.models import Ultra
+
 
 separator = ">" * 30
 line = "-" * 30
@@ -35,6 +36,10 @@ def multigraph_collator(batch, train_graphs):
     batch = torch.cat([graph.target_edge_index[:, edge_mask], graph.target_edge_type[edge_mask].unsqueeze(0)]).t()
     return graph, batch
 
+def _unwrap_pred_and_aux(output):
+    if isinstance(output, tuple) and len(output) == 2 and isinstance(output[1], dict):
+        return output[0], output[1]
+    return output, None
 
 # here we assume that train_data and valid_data are tuples of datasets
 def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, batch_per_epoch=None):
@@ -44,9 +49,11 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
     world_size = util.get_world_size()
     rank = util.get_rank()
 
+    # gradient accumulation for effective larger batch sizes
     grad_accum_steps = cfg.train.get("gradient_accumulation_steps", 1)
     logger.warning(f"Using gradient accumulation with {grad_accum_steps} steps")
 
+    # concatenate all target edges from multiple training graphs
     train_triplets = torch.cat([
         torch.cat([g.target_edge_index, g.target_edge_type.unsqueeze(0)]).t()
         for g in train_data
@@ -57,17 +64,20 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
 
     batch_per_epoch = batch_per_epoch or len(train_loader)
 
+    # setup optimizer
     cls = cfg.optimizer.pop("class")
     optimizer = getattr(optim, cls)(model.parameters(), **cfg.optimizer)
     num_params = sum(p.numel() for p in model.parameters())
     logger.warning(line)
     logger.warning(f"Number of parameters: {num_params}")
 
+    # wrap model with DistributedDataParallel for multi-GPU training
     if world_size > 1:
         parallel_model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
     else:
         parallel_model = model
 
+    # periodic evaluation and checkpointing
     step = math.ceil(cfg.train.num_epoch / 10)
     best_result = float("-inf")
     best_epoch = -1
@@ -83,42 +93,91 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
             losses = []
             sampler.set_epoch(epoch)
 
-            # Gradient accumulation variables
+            # initialize gradient accumulation variables
             optimizer.zero_grad()
             accum_loss = 0.0
             accum_steps = 0
 
+            # track attention mechanism statistics over a window
+            window_aux_loss = []
+            window_att_entropy = []
+            window_branch_util = None
+
             for batch in islice(train_loader, batch_per_epoch):
                 # now at each step we sample a new graph and edges from it
                 train_graph, batch = batch
+                # generate negative samples for each positive triple
                 batch = tasks.negative_sampling(train_graph, batch, cfg.task.num_negative,
                                                 strict=cfg.task.strict_negative)
-                # weight = cfg.train.regularization_weight
-                pred = parallel_model(train_graph, batch)
-                # reg_loss = util.regularization(weight, reg)
+
+                # forward pass through the model
+                raw_out = parallel_model(train_graph, batch)
+                pred, aux = _unwrap_pred_and_aux(raw_out)
+
                 target = torch.zeros_like(pred)
                 target[:, 0] = 1
-                loss = F.binary_cross_entropy_with_logits(pred, target, reduction="none")
+                bce = F.binary_cross_entropy_with_logits(pred, target, reduction="none")
                 neg_weight = torch.ones_like(pred)
                 if cfg.task.adversarial_temperature > 0:
                     with torch.no_grad():
                         neg_weight[:, 1:] = F.softmax(pred[:, 1:] / cfg.task.adversarial_temperature, dim=-1)
                 else:
                     neg_weight[:, 1:] = 1 / cfg.task.num_negative
-                loss = (loss * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
-                loss = loss.mean()
+                bce = (bce * neg_weight).sum(dim=-1) / neg_weight.sum(dim=-1)
+                bce = bce.mean()
 
-                # Gradient accumulation
-                loss = loss / grad_accum_steps
-                loss.backward()
-                accum_loss += loss.item() * grad_accum_steps
+                # total loss includes bce and auxiliary losses (e.g., entropy regularization)
+                total_loss = bce
+                aux_loss_val = None
+                if aux is not None and aux.get("aux_loss", None) is not None:
+                    total_loss = total_loss + aux["aux_loss"]
+                    aux_loss_val = aux["aux_loss"].detach()
+
+                # gradient accumulation
+                total_loss = total_loss / grad_accum_steps
+                total_loss.backward()
+                accum_loss += total_loss.item() * grad_accum_steps
                 accum_steps += 1
 
+                # collect attention mechanism statistics for monitoring
+                if aux is not None:
+                    if aux_loss_val is not None:
+                        window_aux_loss.append(float(aux_loss_val))
+                    if aux.get("att_entropy", None) is not None:
+                        window_att_entropy.append(float(aux["att_entropy"]))
+                    if aux.get("att_mean_per_branch", None) is not None:
+                        att_branch = aux["att_mean_per_branch"].detach().cpu()
+                        if window_branch_util is None:
+                            window_branch_util = att_branch.clone()
+                        else:
+                            window_branch_util += att_branch
+
+                # log training statistics periodically
                 if util.get_rank() == 0 and batch_id % cfg.train.log_interval == 0:
                     current_loss = accum_loss / accum_steps
                     logger.warning(separator)
                     logger.warning("binary cross entropy: %g" % current_loss)
 
+                    # log attention entropy (diversity measure)
+                    if window_att_entropy:
+                        logger.warning("att_entropy (avg over window): %.4f" %
+                                       (sum(window_att_entropy) / len(window_att_entropy)))
+                    # log auxiliary loss (e.g., entropy regularization)
+                    if window_aux_loss:
+                        logger.warning("aux_loss (avg over window): %.6f" %
+                                       (sum(window_aux_loss) / len(window_aux_loss)))
+                    # log branch utilization (how much each branch is used)
+                    if window_branch_util is not None:
+                        avg_branch = (window_branch_util / max(1, len(window_att_entropy))).numpy()
+                        util_str = ", ".join([f"b{i}:{v:.3f}" for i, v in enumerate(avg_branch)])
+                        logger.warning("branch utilization (avg att per branch): [%s]" % util_str)
+
+                        # clear window statistics
+                        window_aux_loss.clear()
+                        window_att_entropy.clear()
+                        window_branch_util = None
+
+                # perform optimizer step after accumulating enough gradients
                 if accum_steps % grad_accum_steps == 0:
                     optimizer.step()
                     optimizer.zero_grad()
@@ -129,6 +188,7 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
 
                 batch_id += 1
 
+            # handle any remaining accumulated gradients
             if accum_steps > 0:
                 optimizer.step()
                 optimizer.zero_grad()
@@ -141,6 +201,7 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
                 logger.warning(line)
                 logger.warning("average binary cross entropy: %g" % avg_loss)
 
+        # save checkpoint at the end of each evaluation period
         epoch = min(cfg.train.num_epoch, i + step)
         if rank == 0:
             logger.warning("Save checkpoint to model_epoch_%d.pth" % epoch)
@@ -151,14 +212,18 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
             torch.save(state, "model_epoch_%d.pth" % epoch)
         util.synchronize()
 
+        # evaluate on validation set
         if rank == 0:
             logger.warning(separator)
             logger.warning("Evaluate on valid")
         result = test(cfg, model, valid_data, filtered_data=filtered_data)
+        
+        # track best model based on validation performance
         if result > best_result:
             best_result = result
             best_epoch = epoch
 
+    # load the best checkpoint for final evaluation
     if rank == 0:
         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
     state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
@@ -284,7 +349,7 @@ if __name__ == "__main__":
     valid_data = [vd.to(device) for vd in valid_data]
     test_data = [tst.to(device) for tst in test_data]
 
-    model = Gamma(
+    model = Ultra(
         rel_model_cfg=cfg.model.relation_model,
         entity_model_cfg=cfg.model.entity_model,
     )
