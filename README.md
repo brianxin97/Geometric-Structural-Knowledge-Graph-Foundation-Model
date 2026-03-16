@@ -1,10 +1,10 @@
-# GAMMA: Geometric-Knowledge-Graph-Foundation-Model
+# GAMMA: Geometric-Structural-Knowledge-Graph-Foundation-Model
 
 > ⚡️ This project is built on top of **ULTRA: Towards Foundation Models for Knowledge Graph Reasoning** (MIT License).  
 > This README is adapted from the original project’s README with targeted changes to reflect this fork’s behavior.  
 > The bulk of the adapted documentation is shown below.
 
-GAMMA, a knowledge graph foundation model that overcomes the limitations of existing approaches by integrating multiple geometric transformations within a unified attention-based framework. Different with prior models that rely on a single transformation and thus introduce structural biases, GAMMA leverages multiple relational message passing mechanisms to dynamically adapt to the relational patterns present in the data.
+GAMMA, a structural knowledge graph foundation model that overcomes the limitations of existing approaches by integrating multiple geometric transformations within a unified attention-based framework. Different with prior models that rely on a single transformation and thus introduce structural biases, GAMMA leverages multiple relational message passing mechanisms to dynamically adapt to the relational patterns present in the data.
 
 ---
 
@@ -168,7 +168,7 @@ The repo packs 56 different KG datasets of sizes from 1K-120K nodes and 1K-2M ed
 <summary>Transductive datasets (15)</summary>
 
 * `FB15k237`, `WN18RR`, `NELL995`, `YAGO310`, `CoDExSmall`, `CoDExMedium`, `CoDExLarge`, `ConceptNet100k`, `DBpedia100k`, `AristoV4` - full head/tail evaluation
-* `WDsinger`, `NELL23k`, `FB15k237_10`, `FB15k237_20`, `FB15k237_50`- only tail evaluation
+* `WDsinger`, `NELL23k`, `FB15k237_10`, `FB15k237_20`, `FB15k237_50` - full head/tail evaluation
 
 </details>
 
