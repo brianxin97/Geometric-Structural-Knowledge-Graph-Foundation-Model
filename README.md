@@ -1,4 +1,4 @@
-# GAMMA: Geometric-Structural-Knowledge-Graph-Foundation-Model
+# GAMMA
 
 [![pytorch](https://img.shields.io/badge/PyTorch_2.1+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![pyg](https://img.shields.io/badge/PyG_2.4+-3C2179?logo=pyg&logoColor=#3C2179)](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html)
@@ -9,7 +9,7 @@
   <img src="figure/gamma.png" height="300">
 </div>
 
-GAMMA, a structural knowledge graph foundation model that overcomes the limitations of existing approaches by integrating multiple geometric transformations within a unified attention-based framework. Different with prior models that rely on a single transformation and thus introduce structural biases, GAMMA leverages multiple relational message passing mechanisms to dynamically adapt to the relational patterns present in the data.
+GAMMA: Geometric Structural Knowledge Graph Foundation Model. GAMMA is a structural knowledge graph foundation model that integrating multi-branch geometric transformations within a unified, co-evolutionary attention framework. GAMMA leverages an Entity-Relation Co-evolution architecture and concurrently executes multiple relational message passing mechanisms (Complex, Split-Complex, Dual) to adapt to diverse relational patterns, achieving state-of-the-art prediction performance over 57 knowledge graph datasets.
 
 ---
 
