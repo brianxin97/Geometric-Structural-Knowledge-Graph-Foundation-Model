@@ -5,7 +5,7 @@
 [![GAMMA arxiv](https://img.shields.io/badge/arXiv-2510.01510-b31b1b.svg)](https://arxiv.org/abs/2512.22931)
 ![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)
 
-![GAMMA](figure/gamma.png)
+<img src="figure/gamma.png" height="50%">
 
 GAMMA, a structural knowledge graph foundation model that overcomes the limitations of existing approaches by integrating multiple geometric transformations within a unified attention-based framework. Different with prior models that rely on a single transformation and thus introduce structural biases, GAMMA leverages multiple relational message passing mechanisms to dynamically adapt to the relational patterns present in the data.
 
