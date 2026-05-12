@@ -30,7 +30,7 @@ class QueryGuidedFusion(nn.Module):
 
         # Scoring MLP after fusion
         fused_dim = branch_dim * self.num_branches
-        fused_dim += input_dim  # 拼入 Node Query
+        fused_dim += input_dim
 
         mlp = []
         for _ in range(num_mlp_layers - 1):
