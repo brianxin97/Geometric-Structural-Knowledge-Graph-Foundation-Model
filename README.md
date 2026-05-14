@@ -5,6 +5,7 @@
 [![GAMMA arxiv](https://img.shields.io/badge/arXiv-2510.01510-b31b1b.svg)](https://arxiv.org/abs/2512.22931)
 ![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)
 
+![GAMMA](figure/gamma.png)
 
 GAMMA: Geometric Attention-guided Multi-branch Morphing Architecture. GAMMA is a structural knowledge graph foundation model that integrating multi-branch geometric transformations within a unified, co-evolutionary attention framework. GAMMA leverages an Entity-Relation Co-evolution architecture and concurrently executes multiple relational message passing mechanisms (Complex, Split-Complex, Dual) to adapt to diverse relational patterns, achieving state-of-the-art prediction performance over 57 knowledge graph datasets.
 
