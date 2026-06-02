@@ -50,7 +50,7 @@ export CUDA_HOME=/usr/local/cuda-11.8/
 ## Checkpoints ##
 
 We provide pre-trained GAMMA checkpoints in the `/ckpt` folder with this codebase:
-* `gamma_3m.pth` and `gamma_1m.pth` are trained on `FB15k237, WN18RR, CoDExMedium` for 800,000 steps. `gamma_3m.pth` uses 3 message functions (complex, split-complex, dual), `gamma_1m.pth` uses  message function (complex), config is in `/config/pretrain_3g.yaml`
+* `gamma_max.pth` and `gamma_flash.pth` are trained on `FB15k237, WN18RR, CoDExMedium` for 800,000 steps. `gamma_max.pth` uses 3 message functions (complex, split-complex, dual), `gamma_flash.pth` uses  message function (complex), config is in `/config/pretrain_3g.yaml`
 
 You can use those checkpoints for zero-shot inference on any graph (including your own) or use it as a backbone for fine-tuning.
 
@@ -82,12 +82,12 @@ Fine-tuning of a checkpoint is when epochs > 0 with a given checkpoint.
 An example command for an inductive dataset to run on a CPU: 
 
 ```bash
-python script/run.py -c config/inductive_inference.yaml --dataset FB15k237Inductive --version v1 --epochs 0 --bpe null --gpus null --ckpt /path/to/gamma/ckpt/gamma_3m.pth
+python script/run.py -c config/inductive_inference.yaml --dataset FB15k237Inductive --version v1 --epochs 0 --bpe null --gpus null --ckpt /path/to/gamma/ckpt/gamma_max.pth
 ```
 
 An example command for a transductive dataset to run on a GPU:
 ```bash
-python script/run.py -c config/transductive_inference.yaml --dataset CoDExSmall --epochs 0 --bpe null --gpus [0] --ckpt /path/to/gamma/ckpt/gamma_3m.pth
+python script/run.py -c config/transductive_inference.yaml --dataset CoDExSmall --epochs 0 --bpe null --gpus [0] --ckpt /path/to/gamma/ckpt/gamma_max.pth
 ```
 
 ### Run on many datasets
