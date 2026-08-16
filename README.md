@@ -258,19 +258,3 @@ After adding your own dataset, you can immediately run 0-shot inference or fine-
 ## References
 
 Our implementation is based on the [ULTRA](https://github.com/DeepGraphLearning/ULTRA) repository.
-
-## Citation
-
-If you find our work useful, please consider citing it:
-
-```bib
-@misc{xin2025geometricstructuralknowledgegraph,
-      title={Geometric Structural Knowledge Graph Foundation Model}, 
-      author={Ling Xin and Mojtaba Nayyeri and Zahra Makki Nayeri and Steffen Staab},
-      year={2025},
-      eprint={2512.22931},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2512.22931}, 
-}
-```
